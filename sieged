@@ -35,7 +35,10 @@ local Config = {
     Aimbot = {
         Enabled = false,
         Smoothness = 0.1,
-        MagicBullet = false
+        FOV = 100 -- Default FOV radius in pixels
+    },
+    Triggerbot = {
+        Enabled = false
     }
 }
 
@@ -509,12 +512,12 @@ local AimbotToggle = CombatTab:CreateToggle({
     end
 })
 
-local MagicBulletToggle = CombatTab:CreateToggle({
-    Name = "Magic Bullet",
-    CurrentValue = Config.Aimbot.MagicBullet,
-    Flag = "Aimbot_MagicBullet",
+local TriggerbotToggle = CombatTab:CreateToggle({
+    Name = "Triggerbot",
+    CurrentValue = Config.Triggerbot.Enabled,
+    Flag = "Triggerbot_Enabled",
     Callback = function(Value)
-        Config.Aimbot.MagicBullet = Value
+        Config.Triggerbot.Enabled = Value
     end
 })
 
@@ -526,6 +529,17 @@ local AimbotSmoothnessSlider = CombatTab:CreateSlider({
     Flag = "Aimbot_Smoothness",
     Callback = function(Value)
         Config.Aimbot.Smoothness = Value
+    end
+})
+
+local AimbotFOVSlider = CombatTab:CreateSlider({
+    Name = "Aimbot FOV",
+    Range = {50, 200},
+    Increment = 10,
+    CurrentValue = Config.Aimbot.FOV,
+    Flag = "Aimbot_FOV",
+    Callback = function(Value)
+        Config.Aimbot.FOV = Value
     end
 })
 
@@ -725,13 +739,15 @@ end
 local function GetNearestTarget()
     local nearestTarget = nil
     local shortestDistance = math.huge
+    local mousePos = UserInputService:GetMouseLocation()
 
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Team ~= LocalPlayer.Team then
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and (not Config.ESP.TeamCheck or player.Team ~= LocalPlayer.Team) then
             local head = player.Character.Head
-            local distance = (Camera.CFrame.Position - head.Position).Magnitude
+            local screenPoint, onScreen = Camera:WorldToViewportPoint(head.Position)
+            local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mousePos.X, mousePos.Y)).Magnitude
 
-            if distance <= Config.ESP.MaxDistance and distance < shortestDistance then
+            if onScreen and distance <= Config.ESP.MaxDistance and distance < shortestDistance and distance <= Config.Aimbot.FOV then
                 shortestDistance = distance
                 nearestTarget = head
             end
@@ -747,20 +763,12 @@ do
         aimbotConnection = RunService.RenderStepped:Connect(function()
             if Config.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
                 local target = GetNearestTarget()
-                if target then
+                if target and target.Parent then
                     local targetPosition = target.Position
                     local direction = (targetPosition - Camera.CFrame.Position).Unit
                     local newCFrame = CFrame.new(Camera.CFrame.Position, targetPosition)
 
                     Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Config.Aimbot.Smoothness)
-
-                    if Config.Aimbot.MagicBullet then
-                        local character = target.Parent
-                        local humanoid = character:FindFirstChild("Humanoid")
-                        if humanoid and humanoid.Health > 0 then
-                            humanoid.Health = 0 -- Instantly kills the target, bypassing walls
-                        end
-                    end
                 end
             end
         end)
@@ -768,6 +776,63 @@ do
 
     if not success then
         warn("Aimbot connection failed: " .. err)
+    end
+end
+
+local triggerbotConnection
+do
+    local success, err = pcall(function()
+        triggerbotConnection = RunService.RenderStepped:Connect(function()
+            if Config.Triggerbot.Enabled then
+                local ray = Ray.new(Camera.CFrame.Position, Camera.CFrame.LookVector * Config.ESP.MaxDistance)
+                local target = nil
+                local hitPart = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character}, false, true)
+
+                if hitPart then
+                    local character = hitPart:FindFirstAncestorWhichIsA("Model")
+                    if character and character:FindFirstChild("Humanoid") and character ~= LocalPlayer.Character then
+                        local player = Players:GetPlayerFromCharacter(character)
+                        if player and (not Config.ESP.TeamCheck or player.Team ~= LocalPlayer.Team) then
+                            target = player
+                        end
+                    end
+                end
+
+                if target and mouse1Down then
+                    mouse1press()
+                    wait(0.1) -- Simple debounce
+                    mouse1release()
+                end
+            end
+        end)
+    end)
+
+    if not success then
+        warn("Triggerbot connection failed: " .. err)
+    end
+
+    -- Mouse input simulation (requires executor support)
+    local userInputService = game:GetService("UserInputService")
+    local virtualUser = game:GetService("VirtualUser")
+
+    userInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouse1Down = true
+        end
+    end)
+
+    userInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouse1Down = false
+        end
+    end)
+
+    function mouse1press()
+        virtualUser:Button1Down(Vector2.new(Mouse.X, Mouse.Y))
+    end
+
+    function mouse1release()
+        virtualUser:Button1Up(Vector2.new(Mouse.X, Mouse.Y))
     end
 end
 
