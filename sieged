@@ -650,7 +650,6 @@ local UpdateButton = SettingsTab:CreateButton({
             return
         end
 
-        -- Simulate version check (replace with actual version logic)
         local currentVersion = "1.0" -- Define your current version
         local versionMatch = response:match("-- Version: (%d+%.%d+)")
         if versionMatch and versionMatch > currentVersion then
@@ -883,46 +882,68 @@ end)
 -- Gun Misc Implementation
 local function ApplyGunMods()
     local character = LocalPlayer.Character
-    if not character then return end
+    if not character then
+        print("No character found")
+        return
+    end
 
     local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then return end
+    if not humanoid then
+        print("No humanoid found")
+        return
+    end
 
     local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
-    if not tool then return end
+    if not tool then
+        print("No tool equipped")
+        return
+    end
+
+    print("Tool found:", tool.Name)
+    for _, child in pairs(tool:GetChildren()) do
+        print("Tool child:", child.Name, child.ClassName)
+    end
 
     if Config.GunMisc.NoRecoil then
-        -- Note: Recoil is often handled server-side or via animations. This is a client-side approximation.
-        -- You may need to hook into the game's specific recoil system (e.g., via a remote event).
-        local function noRecoilHook()
-            if tool and tool:FindFirstChild("Handle") then
-                tool.Handle.Velocity = Vector3.new(0, 0, 0) -- Attempt to stabilize
-            end
+        -- Check for recoil-related values or objects
+        local recoilValue = tool:FindFirstChild("Recoil") or tool:FindFirstChild("RecoilAmount")
+        if recoilValue and recoilValue:IsA("NumberValue") then
+            recoilValue.Value = 0
+            print("No Recoil applied to:", recoilValue.Name)
+        else
+            print("No Recoil value found in tool")
         end
-        RunService.RenderStepped:Connect(noRecoilHook)
     end
 
     if Config.GunMisc.NoSpread then
-        -- Note: Spread is typically server-side. This modifies local bullet direction if client-side.
-        if tool and tool:FindFirstChild("Shoot") then
+        -- Check for spread-related values or hook shoot function
+        local spreadValue = tool:FindFirstChild("Spread") or tool:FindFirstChild("Accuracy")
+        if spreadValue and spreadValue:IsA("NumberValue") then
+            spreadValue.Value = 0
+            print("No Spread applied to:", spreadValue.Name)
+        elseif tool:FindFirstChild("Shoot") then
             local oldShoot = tool.Shoot
             tool.Shoot = function(...)
                 local args = {...}
-                args[2] = Camera.CFrame.LookVector -- Force bullet direction to camera
+                args[2] = Camera.CFrame.LookVector -- Force bullet direction
                 return oldShoot(unpack(args))
             end
+            print("No Spread hooked to Shoot function")
+        else
+            print("No Spread value or Shoot function found")
         end
     end
 
     if Config.GunMisc.InfiniteAmmo then
-        -- Note: Ammo is often server-side. This modifies local ammo value if accessible.
-        if tool and tool:FindFirstChild("Ammo") then
-            local ammo = tool.Ammo
-            if ammo:IsA("IntValue") then
-                ammo.Changed:Connect(function()
-                    ammo.Value = math.huge
-                end)
-            end
+        -- Check for ammo-related values
+        local ammoValue = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
+        if ammoValue and ammoValue:IsA("IntValue") then
+            ammoValue.Changed:Connect(function()
+                ammoValue.Value = math.huge
+            end)
+            print("Infinite Ammo applied to:", ammoValue.Name)
+        else
+            print("No Ammo value found in tool")
         end
     end
 end
