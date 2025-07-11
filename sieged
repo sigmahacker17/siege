@@ -31,6 +31,11 @@ local Config = {
         TextOutline = true,
         
         RefreshRate = 0.05
+    },
+    Aimbot = {
+        Enabled = false,
+        Smoothness = 0.1,
+        MagicBullet = false
     }
 }
 
@@ -61,6 +66,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local ESPTab = Window:CreateTab("ESP", 4483362458)
+local CombatTab = Window:CreateTab("Combat", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
 local PlayerESP = {}
@@ -492,6 +498,37 @@ local ESPDistanceSlider = ESPTab:CreateSlider({
     end
 })
 
+local CombatSection = CombatTab:CreateSection("Combat Options")
+
+local AimbotToggle = CombatTab:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = Config.Aimbot.Enabled,
+    Flag = "Aimbot_Enabled",
+    Callback = function(Value)
+        Config.Aimbot.Enabled = Value
+    end
+})
+
+local MagicBulletToggle = CombatTab:CreateToggle({
+    Name = "Magic Bullet",
+    CurrentValue = Config.Aimbot.MagicBullet,
+    Flag = "Aimbot_MagicBullet",
+    Callback = function(Value)
+        Config.Aimbot.MagicBullet = Value
+    end
+})
+
+local AimbotSmoothnessSlider = CombatTab:CreateSlider({
+    Name = "Aimbot Smoothness",
+    Range = {0.01, 0.5},
+    Increment = 0.01,
+    CurrentValue = Config.Aimbot.Smoothness,
+    Flag = "Aimbot_Smoothness",
+    Callback = function(Value)
+        Config.Aimbot.Smoothness = Value
+    end
+})
+
 local SettingsSection = SettingsTab:CreateSection("Settings")
 
 local scriptRunning = true
@@ -622,39 +659,116 @@ local espConnection
 do
     local frameTime = 0
     local frameCount = 0
-    local framesPerUpdate = math.max(1, math.round(Config.ESP.RefreshRate * 60)) -- Assume 60 FPS for frame skipping
+    local framesPerUpdate = math.max(1, math.round(Config.ESP.RefreshRate * 60))
 
-    espConnection = Run reimbursedService.RenderStepped:Connect(function(deltaTime)
-        if not scriptRunning then
-            espConnection:Disconnect()
-            return
-        end
+    local success, err = pcall(function()
+        espConnection = RunService.RenderStepped:Connect(function(deltaTime)
+            if not scriptRunning then
+                espConnection:Disconnect()
+                return
+            end
 
-        frameTime = frameTime + deltaTime
-        frameCount = frameCount + 1
+            frameTime = frameTime + deltaTime
+            frameCount = frameCount + 1
 
-        if frameCount >= framesPerUpdate then
-            if Config.ESP.Enabled then
-                UpdatePlayerESP()
-                UpdateDroneESP()
-            else
-                for _, esp in pairs(PlayerESP) do
-                    if esp.Box then esp.Box.Visible = false end
-                    if esp.Name then esp.Name.Visible = false end
-                    for _, line in pairs(esp.Skeleton) do
-                        if line then line.Visible = false end
+            if frameCount >= framesPerUpdate then
+                if Config.ESP.Enabled then
+                    UpdatePlayerESP()
+                    UpdateDroneESP()
+                else
+                    for _, esp in pairs(PlayerESP) do
+                        if esp.Box then esp.Box.Visible = false end
+                        if esp.Name then esp.Name.Visible = false end
+                        for _, line in pairs(esp.Skeleton) do
+                            if line then line.Visible = false end
+                        end
+                    end
+                
+                    for _, esp in pairs(DroneESP) do
+                        if esp.Box then esp.Box.Visible = false end
+                        if esp.Label then esp.Label.Visible = false end
                     end
                 end
+                frameCount = 0
+                frameTime = 0
+            end
+        end)
+    end)
+
+    if not success then
+        warn("RenderStepped connection failed, falling back to wait loop: " .. err)
+        spawn(function()
+            while scriptRunning do
+                if Config.ESP.Enabled then
+                    UpdatePlayerESP()
+                    UpdateDroneESP()
+                else
+                    for _, esp in pairs(PlayerESP) do
+                        if esp.Box then esp.Box.Visible = false end
+                        if esp.Name then esp.Name.Visible = false end
+                        for _, line in pairs(esp.Skeleton) do
+                            if line then line.Visible = false end
+                        end
+                    end
                 
-                for _, esp in pairs(DroneESP) do
-                    if esp.Box then esp.Box.Visible = false end
-                    if esp.Label then esp.Label.Visible = false end
+                    for _, esp in pairs(DroneESP) do
+                        if esp.Box then esp.Box.Visible = false end
+                        if esp.Label then esp.Label.Visible = false end
+                    end
+                end
+                wait(Config.ESP.RefreshRate)
+            end
+        end)
+    end
+end
+
+local function GetNearestTarget()
+    local nearestTarget = nil
+    local shortestDistance = math.huge
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Team ~= LocalPlayer.Team then
+            local head = player.Character.Head
+            local distance = (Camera.CFrame.Position - head.Position).Magnitude
+
+            if distance <= Config.ESP.MaxDistance and distance < shortestDistance then
+                shortestDistance = distance
+                nearestTarget = head
+            end
+        end
+    end
+
+    return nearestTarget
+end
+
+local aimbotConnection
+do
+    local success, err = pcall(function()
+        aimbotConnection = RunService.RenderStepped:Connect(function()
+            if Config.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                local target = GetNearestTarget()
+                if target then
+                    local targetPosition = target.Position
+                    local direction = (targetPosition - Camera.CFrame.Position).Unit
+                    local newCFrame = CFrame.new(Camera.CFrame.Position, targetPosition)
+
+                    Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Config.Aimbot.Smoothness)
+
+                    if Config.Aimbot.MagicBullet then
+                        local character = target.Parent
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        if humanoid and humanoid.Health > 0 then
+                            humanoid.Health = 0 -- Instantly kills the target, bypassing walls
+                        end
+                    end
                 end
             end
-            frameCount = 0
-            frameTime = 0
-        end
+        end)
     end)
+
+    if not success then
+        warn("Aimbot connection failed: " .. err)
+    end
 end
 
 spawn(function()
