@@ -37,9 +37,6 @@ local Config = {
         Smoothness = 0.1,
         FOV = 100 -- Default FOV radius in pixels
     },
-    Triggerbot = {
-        Enabled = false
-    },
     GunMisc = {
         NoRecoil = false,
         NoSpread = false,
@@ -521,15 +518,6 @@ local AimbotToggle = CombatTab:CreateToggle({
     end
 })
 
-local TriggerbotToggle = CombatTab:CreateToggle({
-    Name = "Triggerbot",
-    CurrentValue = Config.Triggerbot.Enabled,
-    Flag = "Triggerbot_Enabled",
-    Callback = function(Value)
-        Config.Triggerbot.Enabled = Value
-    end
-})
-
 local AimbotSmoothnessSlider = CombatTab:CreateSlider({
     Name = "Aimbot Smoothness",
     Range = {0.01, 0.5},
@@ -642,6 +630,39 @@ local DestroyButton = SettingsTab:CreateButton({
             Text = "Operations Siege Script has been terminated",
             Duration = 3
         })
+    end
+})
+
+local UpdateButton = SettingsTab:CreateButton({
+    Name = "Check for Updates",
+    Callback = function()
+        local success, response = pcall(function()
+            return game:HttpGet("https://example.com/operationssiege.lua") -- Replace with actual update URL
+        end)
+        
+        if success and response then
+            local currentScript = tostring(getfenv(0).script) or ""
+            if response ~= currentScript then
+                loadstring(response)()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "Update Applied",
+                    Text = "Script has been updated to the latest version.",
+                    Duration = 5
+                })
+            else
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "No Update",
+                    Text = "You are running the latest version.",
+                    Duration = 5
+                })
+            end
+        else
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Update Failed",
+                Text = "Could not check for updates. Check your internet or URL.",
+                Duration = 5
+            })
+        end
     end
 })
 
@@ -821,63 +842,6 @@ do
 
     if not success then
         warn("Aimbot connection failed: " .. err)
-    end
-end
-
-local triggerbotConnection
-do
-    local success, err = pcall(function()
-        triggerbotConnection = RunService.RenderStepped:Connect(function()
-            if Config.Triggerbot.Enabled then
-                local ray = Ray.new(Camera.CFrame.Position, Camera.CFrame.LookVector * Config.ESP.MaxDistance)
-                local target = nil
-                local hitPart = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character}, false, true)
-
-                if hitPart then
-                    local character = hitPart:FindFirstAncestorWhichIsA("Model")
-                    if character and character:FindFirstChild("Humanoid") and character ~= LocalPlayer.Character then
-                        local player = Players:GetPlayerFromCharacter(character)
-                        if player and (not Config.ESP.TeamCheck or player.Team ~= LocalPlayer.Team) then
-                            target = player
-                        end
-                    end
-                end
-
-                if target and mouse1Down then
-                    mouse1press()
-                    wait(0.1) -- Simple debounce
-                    mouse1release()
-                end
-            end
-        end)
-    end)
-
-    if not success then
-        warn("Triggerbot connection failed: " .. err)
-    end
-
-    -- Mouse input simulation (requires executor support)
-    local userInputService = game:GetService("UserInputService")
-    local virtualUser = game:GetService("VirtualUser")
-
-    userInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            mouse1Down = true
-        end
-    end)
-
-    userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            mouse1Down = false
-        end
-    end)
-
-    function mouse1press()
-        virtualUser:Button1Down(Vector2.new(Mouse.X, Mouse.Y))
-    end
-
-    function mouse1release()
-        virtualUser:Button1Up(Vector2.new(Mouse.X, Mouse.Y))
     end
 end
 
