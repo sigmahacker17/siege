@@ -39,6 +39,11 @@ local Config = {
     },
     Triggerbot = {
         Enabled = false
+    },
+    GunMisc = {
+        NoRecoil = false,
+        NoSpread = false,
+        InfiniteAmmo = false
     }
 }
 
@@ -70,6 +75,7 @@ local Window = Rayfield:CreateWindow({
 
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 local CombatTab = Window:CreateTab("Combat", 4483362458)
+local GunMiscTab = Window:CreateTab("Gun Misc", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
 local PlayerESP = {}
@@ -465,7 +471,7 @@ local TeamCheckToggle = ESPTab:CreateToggle({
 
 local BoxColorPicker = ESPTab:CreateColorPicker({
     Name = "Box Color",
-    Color = Config.ESP.BoxColor,
+    Color = Color3.fromRGB(255, 255, 255),
     Flag = "ESP_BoxColor",
     Callback = function(Value)
         Config.ESP.BoxColor = Value
@@ -474,7 +480,7 @@ local BoxColorPicker = ESPTab:CreateColorPicker({
 
 local SkeletonColorPicker = ESPTab:CreateColorPicker({
     Name = "Skeleton Color",
-    Color = Config.ESP.SkeletonColor,
+    Color = Color3.fromRGB(0, 255, 255),
     Flag = "ESP_SkeletonColor",
     Callback = function(Value)
         Config.ESP.SkeletonColor = Value
@@ -483,7 +489,7 @@ local SkeletonColorPicker = ESPTab:CreateColorPicker({
 
 local DroneColorPicker = ESPTab:CreateColorPicker({
     Name = "Drone Color",
-    Color = Config.ESP.DroneColor,
+    Color = Color3.fromRGB(255, 0, 255),
     Flag = "ESP_DroneColor",
     Callback = function(Value)
         Config.ESP.DroneColor = Value
@@ -509,6 +515,9 @@ local AimbotToggle = CombatTab:CreateToggle({
     Flag = "Aimbot_Enabled",
     Callback = function(Value)
         Config.Aimbot.Enabled = Value
+        if fovCircle then
+            fovCircle.Visible = Value
+        end
     end
 })
 
@@ -540,6 +549,38 @@ local AimbotFOVSlider = CombatTab:CreateSlider({
     Flag = "Aimbot_FOV",
     Callback = function(Value)
         Config.Aimbot.FOV = Value
+        if fovCircle then
+            fovCircle.Radius = Value
+        end
+    end
+})
+
+local GunMiscSection = GunMiscTab:CreateSection("Gun Modifications")
+
+local NoRecoilToggle = GunMiscTab:CreateToggle({
+    Name = "No Recoil",
+    CurrentValue = Config.GunMisc.NoRecoil,
+    Flag = "GunMisc_NoRecoil",
+    Callback = function(Value)
+        Config.GunMisc.NoRecoil = Value
+    end
+})
+
+local NoSpreadToggle = GunMiscTab:CreateToggle({
+    Name = "No Spread",
+    CurrentValue = Config.GunMisc.NoSpread,
+    Flag = "GunMisc_NoSpread",
+    Callback = function(Value)
+        Config.GunMisc.NoSpread = Value
+    end
+})
+
+local InfiniteAmmoToggle = GunMiscTab:CreateToggle({
+    Name = "Infinite Ammo",
+    CurrentValue = Config.GunMisc.InfiniteAmmo,
+    Flag = "GunMisc_InfiniteAmmo",
+    Callback = function(Value)
+        Config.GunMisc.InfiniteAmmo = Value
     end
 })
 
@@ -568,6 +609,10 @@ local DestroyButton = SettingsTab:CreateButton({
         end
         
         table.clear(DroneESP)
+        
+        if fovCircle then
+            fovCircle:Remove()
+        end
         
         for _, connection in pairs(getconnections(RunService.RenderStepped)) do
             connection:Disconnect()
@@ -835,6 +880,79 @@ do
         virtualUser:Button1Up(Vector2.new(Mouse.X, Mouse.Y))
     end
 end
+
+-- Aimbot FOV Visualization
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = false
+fovCircle.Color = Color3.fromRGB(255, 0, 0) -- Red circle
+fovCircle.Transparency = 0.5
+fovCircle.Thickness = 1
+fovCircle.NumSides = 32 -- Smooth circle
+fovCircle.Radius = Config.Aimbot.FOV
+fovCircle.Filled = false
+
+RunService.RenderStepped:Connect(function()
+    if Config.Aimbot.Enabled then
+        local mousePos = UserInputService:GetMouseLocation()
+        fovCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
+        fovCircle.Visible = true
+    else
+        fovCircle.Visible = false
+    end
+end)
+
+-- Gun Misc Implementation
+local function ApplyGunMods()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+
+    local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
+    if not tool then return end
+
+    if Config.GunMisc.NoRecoil then
+        -- Note: Recoil is often handled server-side or via animations. This is a client-side approximation.
+        -- You may need to hook into the game's specific recoil system (e.g., via a remote event).
+        local function noRecoilHook()
+            if tool and tool:FindFirstChild("Handle") then
+                tool.Handle.Velocity = Vector3.new(0, 0, 0) -- Attempt to stabilize
+            end
+        end
+        RunService.RenderStepped:Connect(noRecoilHook)
+    end
+
+    if Config.GunMisc.NoSpread then
+        -- Note: Spread is typically server-side. This modifies local bullet direction if client-side.
+        if tool and tool:FindFirstChild("Shoot") then
+            local oldShoot = tool.Shoot
+            tool.Shoot = function(...)
+                local args = {...}
+                args[2] = Camera.CFrame.LookVector -- Force bullet direction to camera
+                return oldShoot(unpack(args))
+            end
+        end
+    end
+
+    if Config.GunMisc.InfiniteAmmo then
+        -- Note: Ammo is often server-side. This modifies local ammo value if accessible.
+        if tool and tool:FindFirstChild("Ammo") then
+            local ammo = tool.Ammo
+            if ammo:IsA("IntValue") then
+                ammo.Changed:Connect(function()
+                    ammo.Value = math.huge
+                end)
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if Config.GunMisc.NoRecoil or Config.GunMisc.NoSpread or Config.GunMisc.InfiniteAmmo then
+        ApplyGunMods()
+    end
+end)
 
 spawn(function()
     while scriptRunning and wait(3) do
