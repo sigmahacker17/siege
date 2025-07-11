@@ -637,29 +637,44 @@ local UpdateButton = SettingsTab:CreateButton({
     Name = "Check for Updates",
     Callback = function()
         local success, response = pcall(function()
-            return game:HttpGet("https://example.com/operationssiege.lua") -- Replace with actual update URL
+            return game:HttpGet("https://example.com/operationssiege.lua") -- Replace with real URL
         end)
         
-        if success and response then
-            local currentScript = tostring(getfenv(0).script) or ""
-            if response ~= currentScript then
+        if not success then
+            print("HTTP Request Failed:", response)
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Update Failed",
+                Text = "Could not connect to update server. Check URL or internet.",
+                Duration = 5
+            })
+            return
+        end
+
+        -- Simulate version check (replace with actual version logic)
+        local currentVersion = "1.0" -- Define your current version
+        local versionMatch = response:match("-- Version: (%d+%.%d+)")
+        if versionMatch and versionMatch > currentVersion then
+            local successLoad, err = pcall(function()
                 loadstring(response)()
+            end)
+            if successLoad then
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "Update Applied",
-                    Text = "Script has been updated to the latest version.",
+                    Text = "Script has been updated to version " .. versionMatch .. ".",
                     Duration = 5
                 })
             else
+                print("Loadstring Error:", err)
                 game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "No Update",
-                    Text = "You are running the latest version.",
+                    Title = "Update Failed",
+                    Text = "Error applying update: " .. err,
                     Duration = 5
                 })
             end
         else
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Update Failed",
-                Text = "Could not check for updates. Check your internet or URL.",
+                Title = "No Update",
+                Text = "You are running the latest version (" .. (versionMatch or currentVersion) .. ").",
                 Duration = 5
             })
         end
