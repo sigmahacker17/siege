@@ -546,14 +546,12 @@ local AimbotFOVSlider = CombatTab:CreateSlider({
     end
 })
 
-local ShowFOVButton = CombatTab:CreateToggle({
+local ShowFOVButton = CombatTab:CreateButton({
     Name = "Show FOV",
-    CurrentValue = Config.FOVVisualizer.Enabled,
-    Flag = "FOV_Visualizer",
-    Callback = function(Value)
-        Config.FOVVisualizer.Enabled = Value
+    Callback = function()
+        Config.FOVVisualizer.Enabled = not Config.FOVVisualizer.Enabled
         if fovCircle then
-            fovCircle.Visible = Value or Config.Aimbot.Enabled
+            fovCircle.Visible = Config.FOVVisualizer.Enabled or Config.Aimbot.Enabled
         end
     end
 })
