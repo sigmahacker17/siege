@@ -1,81 +1,157 @@
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
+
+-- Universal Script with Rayfield UI
+-- Load Rayfield Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Create Window
 local Window = Rayfield:CreateWindow({
-   Name = "Universal Script Hub",
-   LoadingTitle = "Player Script Interface",
-   LoadingSubtitle = "by xAI",
+   Name = "Universal Script",
+   LoadingTitle = "Universal Script Loading...",
+   LoadingSubtitle = "by Replit User",
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = "UniversalScriptHub",
-      FileName = "Config"
+      FolderName = nil,
+      FileName = "UniversalConfig"
    },
    Discord = {
       Enabled = false,
-      Invite = "sirius",
+      Invite = "noinvitelink",
       RememberJoins = true
    },
-   KeySystem = false,
-   KeySettings = {
-      Title = "Universal Script",
-      Subtitle = "Key System",
-      Note = "No key required for this version",
-      FileName = "UniversalKey",
-      SaveKey = false,
-      GrabKeyFromSite = false,
-      Key = {"Hello"}
-   }
+   KeySystem = false
 })
 
-local PlayerTab = Window:CreateTab("Player", nil)
-local PlayerSection = PlayerTab:CreateSection("Player Controls")
+-- Create Player Tab
+local PlayerTab = Window:CreateTab("Player", 4483362458)
 
--- Infinite Jump
-local InfiniteJumpEnabled = false
-local Button = PlayerTab:CreateButton({
-   Name = "Toggle Infinite Jump",
-   Callback = function()
-      InfiniteJumpEnabled = not InfiniteJumpEnabled
-      Rayfield:Notify({
-         Title = "Infinite Jump",
-         Content = InfiniteJumpEnabled and "Infinite Jump Enabled" or "Infinite Jump Disabled",
-         Duration = 3,
-         Image = nil
-      })
-   end
-})
+-- Player Speed Section
+local PlayerSection = PlayerTab:CreateSection("Player Movement")
 
-game:GetService("UserInputService").JumpRequest:Connect(function()
-   if InfiniteJumpEnabled then
-      game:GetService("Players").LocalPlayer.Character.Humanoid:ChangeState("Jumping")
-   end
-end)
-
--- Walk Speed Slider
-local Slider = PlayerTab:CreateSlider({
-   Name = "Walk Speed",
-   Range = {16, 100},
+local SpeedSlider = PlayerTab:CreateSlider({
+   Name = "Walkspeed",
+   Range = {16, 200},
    Increment = 1,
    Suffix = "Speed",
    CurrentValue = 16,
+   Flag = "SpeedSlider",
    Callback = function(Value)
-      game:GetService("Players").LocalPlayer.Character.Humanoid.WalkSpeed = Value
-   end
+      game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+   end,
 })
 
--- Notification on Script Load
+local JumpSlider = PlayerTab:CreateSlider({
+   Name = "Jump Power",
+   Range = {50, 300},
+   Increment = 1,
+   Suffix = "Power",
+   CurrentValue = 50,
+   Flag = "JumpSlider",
+   Callback = function(Value)
+      game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+   end,
+})
+
+-- Player Toggles
+local InfiniteJumpToggle = PlayerTab:CreateToggle({
+   Name = "Infinite Jump",
+   CurrentValue = false,
+   Flag = "InfiniteJump",
+   Callback = function(Value)
+      getgenv().InfiniteJump = Value
+      if Value then
+         game:GetService("UserInputService").JumpRequest:connect(function()
+            if getgenv().InfiniteJump then
+               game.Players.LocalPlayer.Character:FindFirstChild("Humanoid"):ChangeState("Jumping")
+            end
+         end)
+      end
+   end,
+})
+
+local NoClipToggle = PlayerTab:CreateToggle({
+   Name = "Noclip",
+   CurrentValue = false,
+   Flag = "Noclip",
+   Callback = function(Value)
+      getgenv().Noclip = Value
+      game:GetService("RunService").Stepped:connect(function()
+         if getgenv().Noclip then
+            for _, part in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+               if part:IsA("BasePart") then
+                  part.CanCollide = false
+               end
+            end
+         end
+      end)
+   end,
+})
+
+local FlyToggle = PlayerTab:CreateToggle({
+   Name = "Fly",
+   CurrentValue = false,
+   Flag = "Fly",
+   Callback = function(Value)
+      getgenv().Flying = Value
+      local player = game.Players.LocalPlayer
+      local character = player.Character or player.CharacterAdded:Wait()
+      local humanoid = character:WaitForChild("Humanoid")
+      local rootPart = character:WaitForChild("HumanoidRootPart")
+      
+      if Value then
+         local bodyVelocity = Instance.new("BodyVelocity")
+         bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+         bodyVelocity.Parent = rootPart
+         
+         local connection
+         connection = game:GetService("RunService").Heartbeat:Connect(function()
+            if not getgenv().Flying then
+               bodyVelocity:Destroy()
+               connection:Disconnect()
+               return
+            end
+            
+            local camera = workspace.CurrentCamera
+            local moveVector = humanoid.MoveDirection * 50
+            local lookDirection = camera.CFrame.LookVector * 50
+            
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+               bodyVelocity.Velocity = Vector3.new(moveVector.X, 50, moveVector.Z)
+            elseif game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+               bodyVelocity.Velocity = Vector3.new(moveVector.X, -50, moveVector.Z)
+            else
+               bodyVelocity.Velocity = Vector3.new(moveVector.X, 0, moveVector.Z)
+            end
+         end)
+      end
+   end,
+})
+
+-- Teleport Section
+local TeleportSection = PlayerTab:CreateSection("Teleportation")
+
+local TeleportButton = PlayerTab:CreateButton({
+   Name = "Teleport to Spawn",
+   Callback = function()
+      local player = game.Players.LocalPlayer
+      if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+         player.Character.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0)
+      end
+   end,
+})
+
+-- Initialize notification
 Rayfield:Notify({
-   Title = "Player Script Loaded",
-   Content = "Welcome to the Player Script Hub! Enjoy the features.",
-   Duration = 5,
-   Image = nil,
+   Title = "Universal Script Loaded",
+   Content = "All features are now available!",
+   Duration = 3,
+   Image = 4483362458,
    Actions = {
       Ignore = {
-         Name = "Okay",
-         Callback = function()
-            print("Welcome notification acknowledged")
-         end
-      }
-   }
+         Name = "Okay!",
+         Callback = function() end
+      },
+   },
 })
 
--- Load Configuration
-Rayfield:LoadConfiguration()
+print("Universal Script with Rayfield UI loaded successfully!")
