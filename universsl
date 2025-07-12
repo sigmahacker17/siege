@@ -1,4 +1,3 @@
-
 -- Universal Script with Rayfield UI
 -- Load Rayfield Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -86,8 +85,20 @@ local NoClipToggle = PlayerTab:CreateToggle({
    end,
 })
 
+local FlySpeedSlider = PlayerTab:CreateSlider({
+   Name = "Fly Speed",
+   Range = {16, 150},
+   Increment = 1,
+   Suffix = "Speed",
+   CurrentValue = 50,
+   Flag = "FlySpeed",
+   Callback = function(Value)
+      getgenv().FlySpeed = Value
+   end,
+})
+
 local FlyToggle = PlayerTab:CreateToggle({
-   Name = "Fly",
+   Name = "Enhanced Fly",
    CurrentValue = false,
    Flag = "Fly",
    Callback = function(Value)
@@ -98,31 +109,75 @@ local FlyToggle = PlayerTab:CreateToggle({
       local rootPart = character:WaitForChild("HumanoidRootPart")
       
       if Value then
+         -- Create BodyVelocity for smooth movement
          local bodyVelocity = Instance.new("BodyVelocity")
-         bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+         bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
          bodyVelocity.Velocity = Vector3.new(0, 0, 0)
          bodyVelocity.Parent = rootPart
+         
+         -- Create BodyAngularVelocity for rotation control
+         local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+         bodyAngularVelocity.MaxTorque = Vector3.new(0, math.huge, 0)
+         bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+         bodyAngularVelocity.Parent = rootPart
+         
+         -- Store original values
+         local originalPlatformStand = humanoid.PlatformStand
+         humanoid.PlatformStand = true
          
          local connection
          connection = game:GetService("RunService").Heartbeat:Connect(function()
             if not getgenv().Flying then
                bodyVelocity:Destroy()
+               bodyAngularVelocity:Destroy()
+               humanoid.PlatformStand = originalPlatformStand
                connection:Disconnect()
                return
             end
             
             local camera = workspace.CurrentCamera
-            local moveVector = humanoid.MoveDirection * 50
-            local lookDirection = camera.CFrame.LookVector * 50
+            local userInputService = game:GetService("UserInputService")
+            local flySpeed = getgenv().FlySpeed or 50
             
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
-               bodyVelocity.Velocity = Vector3.new(moveVector.X, 50, moveVector.Z)
-            elseif game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-               bodyVelocity.Velocity = Vector3.new(moveVector.X, -50, moveVector.Z)
-            else
-               bodyVelocity.Velocity = Vector3.new(moveVector.X, 0, moveVector.Z)
+            -- Get movement input
+            local moveVector = Vector3.new(0, 0, 0)
+            
+            -- Forward/Backward
+            if userInputService:IsKeyDown(Enum.KeyCode.W) then
+               moveVector = moveVector + camera.CFrame.LookVector
             end
+            if userInputService:IsKeyDown(Enum.KeyCode.S) then
+               moveVector = moveVector - camera.CFrame.LookVector
+            end
+            
+            -- Left/Right
+            if userInputService:IsKeyDown(Enum.KeyCode.A) then
+               moveVector = moveVector - camera.CFrame.RightVector
+            end
+            if userInputService:IsKeyDown(Enum.KeyCode.D) then
+               moveVector = moveVector + camera.CFrame.RightVector
+            end
+            
+            -- Up/Down
+            if userInputService:IsKeyDown(Enum.KeyCode.Space) then
+               moveVector = moveVector + Vector3.new(0, 1, 0)
+            end
+            if userInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+               moveVector = moveVector - Vector3.new(0, 1, 0)
+            end
+            
+            -- Apply movement with smooth acceleration
+            if moveVector.Magnitude > 0 then
+               moveVector = moveVector.Unit * flySpeed
+            end
+            
+            bodyVelocity.Velocity = moveVector
          end)
+      else
+         -- Reset when fly is disabled
+         if character and character:FindFirstChild("Humanoid") then
+            humanoid.PlatformStand = false
+         end
       end
    end,
 })
