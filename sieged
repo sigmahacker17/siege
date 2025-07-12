@@ -41,6 +41,9 @@ local Config = {
         NoRecoil = false,
         NoSpread = false,
         InfiniteAmmo = false
+    },
+    FOVVisualizer = {
+        Enabled = false
     }
 }
 
@@ -513,7 +516,7 @@ local AimbotToggle = CombatTab:CreateToggle({
     Callback = function(Value)
         Config.Aimbot.Enabled = Value
         if fovCircle then
-            fovCircle.Visible = Value
+            fovCircle.Visible = Value or Config.FOVVisualizer.Enabled
         end
     end
 })
@@ -539,6 +542,18 @@ local AimbotFOVSlider = CombatTab:CreateSlider({
         Config.Aimbot.FOV = Value
         if fovCircle then
             fovCircle.Radius = Value
+        end
+    end
+})
+
+local ShowFOVButton = CombatTab:CreateToggle({
+    Name = "Show FOV",
+    CurrentValue = Config.FOVVisualizer.Enabled,
+    Flag = "FOV_Visualizer",
+    Callback = function(Value)
+        Config.FOVVisualizer.Enabled = Value
+        if fovCircle then
+            fovCircle.Visible = Value or Config.Aimbot.Enabled
         end
     end
 })
@@ -882,7 +897,7 @@ fovCircle.Radius = Config.Aimbot.FOV
 fovCircle.Filled = false
 
 RunService.RenderStepped:Connect(function()
-    if Config.Aimbot.Enabled then
+    if (Config.Aimbot.Enabled or Config.FOVVisualizer.Enabled) then
         local mousePos = UserInputService:GetMouseLocation()
         fovCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
         fovCircle.Radius = Config.Aimbot.FOV
