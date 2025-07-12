@@ -637,14 +637,24 @@ local UpdateButton = SettingsTab:CreateButton({
     Name = "Check for Updates",
     Callback = function()
         local success, response = pcall(function()
-            return game:HttpGet("https://example.com/operationssiege.lua") -- Replace with real URL
+            return game:HttpGet("https://raw.githubusercontent.com/sigmahacker17/siege/main/sieged")
         end)
         
         if not success then
             print("HTTP Request Failed:", response)
             game:GetService("StarterGui"):SetCore("SendNotification", {
                 Title = "Update Failed",
-                Text = "Could not connect to update server. Check URL or internet.",
+                Text = "HTTP Error: " .. tostring(response) .. ". Check URL or internet.",
+                Duration = 5
+            })
+            return
+        end
+
+        print("Response Length:", #response)
+        if #response == 0 then
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Update Failed",
+                Text = "Empty response from server. Verify URL.",
                 Duration = 5
             })
             return
@@ -652,6 +662,8 @@ local UpdateButton = SettingsTab:CreateButton({
 
         local currentVersion = "1.0" -- Define your current version
         local versionMatch = response:match("-- Version: (%d+%.%d+)")
+        print("Parsed Version:", versionMatch or "None")
+
         if versionMatch and versionMatch > currentVersion then
             local successLoad, err = pcall(function()
                 loadstring(response)()
@@ -659,21 +671,21 @@ local UpdateButton = SettingsTab:CreateButton({
             if successLoad then
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "Update Applied",
-                    Text = "Script has been updated to version " .. versionMatch .. ".",
+                    Text = "Script updated to version " .. versionMatch .. ".",
                     Duration = 5
                 })
             else
                 print("Loadstring Error:", err)
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "Update Failed",
-                    Text = "Error applying update: " .. err,
+                    Text = "Load Error: " .. tostring(err),
                     Duration = 5
                 })
             end
         else
             game:GetService("StarterGui"):SetCore("SendNotification", {
                 Title = "No Update",
-                Text = "You are running the latest version (" .. (versionMatch or currentVersion) .. ").",
+                Text = "Latest version (" .. (versionMatch or currentVersion) .. ") already installed.",
                 Duration = 5
             })
         end
@@ -859,7 +871,7 @@ do
     end
 end
 
--- Aimbot FOV Visualization
+-- Aimbot FOV Visualizer
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false
 fovCircle.Color = Color3.fromRGB(255, 0, 0) -- Red circle
@@ -873,6 +885,7 @@ RunService.RenderStepped:Connect(function()
     if Config.Aimbot.Enabled then
         local mousePos = UserInputService:GetMouseLocation()
         fovCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
+        fovCircle.Radius = Config.Aimbot.FOV
         fovCircle.Visible = true
     else
         fovCircle.Visible = false
@@ -905,7 +918,6 @@ local function ApplyGunMods()
     end
 
     if Config.GunMisc.NoRecoil then
-        -- Check for recoil-related values or objects
         local recoilValue = tool:FindFirstChild("Recoil") or tool:FindFirstChild("RecoilAmount")
         if recoilValue and recoilValue:IsA("NumberValue") then
             recoilValue.Value = 0
@@ -916,7 +928,6 @@ local function ApplyGunMods()
     end
 
     if Config.GunMisc.NoSpread then
-        -- Check for spread-related values or hook shoot function
         local spreadValue = tool:FindFirstChild("Spread") or tool:FindFirstChild("Accuracy")
         if spreadValue and spreadValue:IsA("NumberValue") then
             spreadValue.Value = 0
@@ -925,7 +936,7 @@ local function ApplyGunMods()
             local oldShoot = tool.Shoot
             tool.Shoot = function(...)
                 local args = {...}
-                args[2] = Camera.CFrame.LookVector -- Force bullet direction
+                args[2] = Camera.CFrame.LookVector
                 return oldShoot(unpack(args))
             end
             print("No Spread hooked to Shoot function")
@@ -935,7 +946,6 @@ local function ApplyGunMods()
     end
 
     if Config.GunMisc.InfiniteAmmo then
-        -- Check for ammo-related values
         local ammoValue = tool:FindFirstChild("Ammo") or tool:FindFirstChild("Ammunition")
         if ammoValue and ammoValue:IsA("IntValue") then
             ammoValue.Changed:Connect(function()
