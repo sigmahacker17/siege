@@ -1,0 +1,81 @@
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
+local Window = Rayfield:CreateWindow({
+   Name = "Universal Script Hub",
+   LoadingTitle = "Player Script Interface",
+   LoadingSubtitle = "by xAI",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "UniversalScriptHub",
+      FileName = "Config"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "sirius",
+      RememberJoins = true
+   },
+   KeySystem = false,
+   KeySettings = {
+      Title = "Universal Script",
+      Subtitle = "Key System",
+      Note = "No key required for this version",
+      FileName = "UniversalKey",
+      SaveKey = false,
+      GrabKeyFromSite = false,
+      Key = {"Hello"}
+   }
+})
+
+local PlayerTab = Window:CreateTab("Player", nil)
+local PlayerSection = PlayerTab:CreateSection("Player Controls")
+
+-- Infinite Jump
+local InfiniteJumpEnabled = false
+local Button = PlayerTab:CreateButton({
+   Name = "Toggle Infinite Jump",
+   Callback = function()
+      InfiniteJumpEnabled = not InfiniteJumpEnabled
+      Rayfield:Notify({
+         Title = "Infinite Jump",
+         Content = InfiniteJumpEnabled and "Infinite Jump Enabled" or "Infinite Jump Disabled",
+         Duration = 3,
+         Image = nil
+      })
+   end
+})
+
+game:GetService("UserInputService").JumpRequest:Connect(function()
+   if InfiniteJumpEnabled then
+      game:GetService("Players").LocalPlayer.Character.Humanoid:ChangeState("Jumping")
+   end
+end)
+
+-- Walk Speed Slider
+local Slider = PlayerTab:CreateSlider({
+   Name = "Walk Speed",
+   Range = {16, 100},
+   Increment = 1,
+   Suffix = "Speed",
+   CurrentValue = 16,
+   Callback = function(Value)
+      game:GetService("Players").LocalPlayer.Character.Humanoid.WalkSpeed = Value
+   end
+})
+
+-- Notification on Script Load
+Rayfield:Notify({
+   Title = "Player Script Loaded",
+   Content = "Welcome to the Player Script Hub! Enjoy the features.",
+   Duration = 5,
+   Image = nil,
+   Actions = {
+      Ignore = {
+         Name = "Okay",
+         Callback = function()
+            print("Welcome notification acknowledged")
+         end
+      }
+   }
+})
+
+-- Load Configuration
+Rayfield:LoadConfiguration()
